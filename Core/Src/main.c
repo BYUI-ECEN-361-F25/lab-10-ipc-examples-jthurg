@@ -106,10 +106,36 @@ const osThreadAttr_t DebounceTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
+/* Definitions for SemaphoreToggle */
+osThreadId_t SemaphoreToggleHandle;
+const osThreadAttr_t SemaphoreToggle_attributes = {
+  .name = "SemaphoreToggle",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for SemaphoreTogD4 */
+osThreadId_t SemaphoreTogD4Handle;
+const osThreadAttr_t SemaphoreTogD4_attributes = {
+  .name = "SemaphoreTogD4",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityAboveNormal,
+};
+/* Definitions for ResMutexCount */
+osThreadId_t ResMutexCountHandle;
+const osThreadAttr_t ResMutexCount_attributes = {
+  .name = "ResMutexCount",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
 /* Definitions for SW_Timer_7Seg */
 osTimerId_t SW_Timer_7SegHandle;
 const osTimerAttr_t SW_Timer_7Seg_attributes = {
   .name = "SW_Timer_7Seg"
+};
+/* Definitions for SWTimer2 */
+osTimerId_t SWTimer2Handle;
+const osTimerAttr_t SWTimer2_attributes = {
+  .name = "SWTimer2"
 };
 /* Definitions for UpDownMutex */
 osMutexId_t UpDownMutexHandle;
@@ -165,7 +191,11 @@ void Mutex_CountDownTask(void *argument);
 void UpdateGlobDisplayProcess(void *argument);
 void ResetGlobalTask(void *argument);
 void StartDebounce(void *argument);
+void Semaphore_Toggle_Task(void *argument);
+void Semaphore_Toggle_D4(void *argument);
+void Reset_MutexCount(void *argument);
 void SW_Timer_Countdown(void *argument);
+void SWTimer2_Callback(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -248,8 +278,13 @@ int main(void)
   /* creation of SW_Timer_7Seg */
   SW_Timer_7SegHandle = osTimerNew(SW_Timer_Countdown, osTimerPeriodic, NULL, &SW_Timer_7Seg_attributes);
 
+  /* creation of SWTimer2 */
+  SWTimer2Handle = osTimerNew(SWTimer2_Callback, osTimerPeriodic, NULL, &SWTimer2_attributes);
+
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
+  osTimerStart(SWTimer2Handle, 5);
+
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -280,6 +315,15 @@ int main(void)
 
   /* creation of DebounceTask */
   DebounceTaskHandle = osThreadNew(StartDebounce, NULL, &DebounceTask_attributes);
+
+  /* creation of SemaphoreToggle */
+  SemaphoreToggleHandle = osThreadNew(Semaphore_Toggle_Task, NULL, &SemaphoreToggle_attributes);
+
+  /* creation of SemaphoreTogD4 */
+  SemaphoreTogD4Handle = osThreadNew(Semaphore_Toggle_D4, NULL, &SemaphoreTogD4_attributes);
+
+  /* creation of ResMutexCount */
+  ResMutexCountHandle = osThreadNew(Reset_MutexCount, NULL, &ResMutexCount_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -429,8 +473,8 @@ static void MX_USART2_UART_Init(void)
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
+  /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
@@ -513,8 +557,8 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_SetPriority(EXTI4_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+  /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
@@ -637,7 +681,7 @@ void SW_Timer_Task(void *argument)
 	if (osTimerIsRunning(SW_Timer_7SegHandle))
 		osTimerStop(SW_Timer_7SegHandle );
 	else
-		osTimerStart(SW_Timer_7SegHandle , 200);
+		osTimerStart(SW_Timer_7SegHandle , 1000);
     osDelay(1);
   }
   /* USER CODE END SW_Timer_Task */
@@ -771,12 +815,77 @@ void StartDebounce(void *argument)
 		 *
 		 * */
 		 xTaskNotifyWait( 0xfffffff8, 0x7, &buttons_in, portMAX_DELAY);
-	     osDelay(30);
+	     osDelay(50);
 	     if (buttons_in & B1) { osSemaphoreRelease(Button_1_SemaphoreHandle); }
 	     if (buttons_in & B2) { osSemaphoreRelease(Button_2_SemaphoreHandle); }
 	     if (buttons_in & B3) { osSemaphoreRelease(Button_3_SemaphoreHandle); }
 	 }
   /* USER CODE END StartDebounce */
+}
+
+/* USER CODE BEGIN Header_Semaphore_Toggle_Task */
+/**
+* @brief Function implementing the SemaphoreToggle thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_Semaphore_Toggle_Task */
+void Semaphore_Toggle_Task(void *argument)
+{
+  /* USER CODE BEGIN Semaphore_Toggle_Task */
+  /* Infinite loop */
+  for(;;)
+  {
+
+	  osSemaphoreAcquire(Button_1_SemaphoreHandle, osWaitForever);
+	  HAL_GPIO_TogglePin(LED_D3_GPIO_Port , LED_D3_Pin);
+	  osDelay(1);
+  }
+  /* USER CODE END Semaphore_Toggle_Task */
+}
+
+/* USER CODE BEGIN Header_Semaphore_Toggle_D4 */
+/**
+* @brief Function implementing the SemaphoreTogD4 thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_Semaphore_Toggle_D4 */
+void Semaphore_Toggle_D4(void *argument)
+{
+  /* USER CODE BEGIN Semaphore_Toggle_D4 */
+  /* Infinite loop */
+  for(;;)
+  {
+	  osSemaphoreAcquire(Button_1_SemaphoreHandle, osWaitForever);
+	  HAL_GPIO_TogglePin(LED_D4_GPIO_Port , LED_D4_Pin);
+    osDelay(1);
+  }
+  /* USER CODE END Semaphore_Toggle_D4 */
+}
+
+/* USER CODE BEGIN Header_Reset_MutexCount */
+/**
+* @brief Function implementing the ResMutexCount thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_Reset_MutexCount */
+void Reset_MutexCount(void *argument)
+{
+  /* USER CODE BEGIN Reset_MutexCount */
+  /* Infinite loop */
+  for(;;)
+  {
+	  osSemaphoreAcquire(Button_3_SemaphoreHandle, osWaitForever);
+	  osMutexWait(UpDownMutexHandle,osWaitForever);
+	  MultiFunctionShield_Display_Two_Digits(-1);
+	  osDelay(200);
+	  osMutexRelease(UpDownMutexHandle);
+	  osDelay(2);
+
+  }
+  /* USER CODE END Reset_MutexCount */
 }
 
 /* SW_Timer_Countdown function */
@@ -798,6 +907,16 @@ void SW_Timer_Countdown(void *argument)
   /* USER CODE END SW_Timer_Countdown */
 }
 
+/* SWTimer2_Callback function */
+void SWTimer2_Callback(void *argument)
+{
+  /* USER CODE BEGIN SWTimer2_Callback */
+
+	MultiFunctionShield__ISRFunc();
+
+  /* USER CODE END SWTimer2_Callback */
+}
+
 /**
   * @brief  Period elapsed callback in non blocking mode
   * @note   This function is called  when TIM3 interrupt took place, inside
@@ -811,14 +930,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 0 */
 
   /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM3) {
+  if (htim->Instance == TIM3)
+  {
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
-  if (htim == &htim17 )
-  {
-	  MultiFunctionShield__ISRFunc();
-  }
+//  if (htim == &htim17 )
+//  {
+//	  MultiFunctionShield__ISRFunc();
+//  }
 
   /* USER CODE END Callback 1 */
 }
@@ -837,8 +957,7 @@ void Error_Handler(void)
   }
   /* USER CODE END Error_Handler_Debug */
 }
-
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
   *         where the assert_param error has occurred.
